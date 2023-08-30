@@ -1,0 +1,18 @@
+Recursion : A function that refers to itself.
+Tasks that have repeated subtasks.
+
+Stack overflow ->
+Maximum call stack size exceeded.
+When you are calling a function recursively over and over again without breaking the chain.
+
+If we keep pushing functions to stack without any pop we might end up with stack overflow.
+
+Every recursive function needs to have a base case.
+
+1. Identify base case
+2. Identify recursive case
+3. Usually you have 2 returns, One for base case and another for recursive case.
+
+Tail Call Optimization :
+Large call stack issue can be resolved with the help of tail call optimization.
+

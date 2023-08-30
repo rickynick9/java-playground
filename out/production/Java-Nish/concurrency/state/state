@@ -1,0 +1,56 @@
+There’s no escape from dealing with state, but there are three ways to do so:
+1. Shared mutability
+One extreme is shared mutability; we create variables and allow any thread to modify them—in a controlled fashion, of course.
+Programming with shared mutability is simply the way of life for most of us Java programmers, but this leads to the undesirable
+synchronize and suffer model.
+
+Synchronization is too easy to get wrong. Fortunately, we have other options.
+
+2. Isolated mutability
+An alternate middle ground to deal with state is isolated mutability, where variables are mutable but are never seen by
+more than one thread, ever. We ensure that anything that’s shared between threads is immutable. Java programmers will
+find this fairly easy to design, and so the isolated mutability may be a reasonable approach.
+
+3. Pure immutability.
+Pure immutability is the other extreme where nothing is allowed to change. Designing for this is not easy, partly
+because of the nature of the problems but mostly because of our inexperience with this approach. The language also makes
+this hard; it requires a lot of effort and discipline to program with immutability in Java. It’s a paradigm shift and
+requires exploring some different data structures and ways than we’re used to in Java. However, if we can realize
+such a practical design, the result is rewarding—easy and safe concurrency.
+
+We can avoid most of the issues with concurrency by opting for isolated mutability or pure immutability.
+For the most part, it’s easier to program with isolated mutability than with pure immutability.
+With isolated mutability, we must ensure that the mutable variable is in fact isolated and never escapes to more than one thread.
+
+Persistent Data Structure
+A persistent data structure is a data structure that always preserves the previous version of itself when it is modified.
+They can be considered as 'immutable' as updates are not in-place.
+
+Persistent data structures are often referred to as immutable, because the original data is left untouched.
+
+There is a better way to create persistent data structures. Instead of copying the entire structure each time a
+modification is made, only the parts that have been modified need to be copied. The rest of the data is shared between
+old and new versions. This can be performed through the use of clone-on-write pointers.
+
+Ordinary data structures are ephemeral in the sense that making a change to the structure destroys the old version,
+leaving only the new one. However, in a variety of areas, such as computational geometry, text and file editing, and
+implementation of very high level programming languages multiple versions of a data structure must be maintained.
+We shall call a data structure persistent if it supports access to multiple versions.
+
+The structure is partially persistent if all versions can be accessed but only the newest version can be modified, and
+fully persistent if every version can be both accessed and modified.
+
+The obvious way to provide persistence is to make a copy of data structure each time it is changed.
+This has a drawback of requiring space and  time proportional to the space occupied by original data structure.
+
+In the world of persistent data structures, an “update” operation must be non-destructive; and a common method to
+achieving this requirement is by branching off to a new version.
+
+Cons Pair
+A Cons Pair is simply a node that contains a value and a pointer to another node.
+
+
+Segment Trees and Persistent data structures, Red black trees
+
+
+

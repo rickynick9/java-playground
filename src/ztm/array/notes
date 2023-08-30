@@ -1,0 +1,6 @@
+Array
+
+Advantages              Disadvantages
+Fast Look-up            Slow inserts
+Fast push/pop           Slow deletes
+Ordered                 Fixed Size

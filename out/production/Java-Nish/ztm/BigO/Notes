@@ -1,0 +1,259 @@
+When we talk about BigO, we simply mean how much our code slows down as we increase input size.
+If we increase our input size, how many more operations we need to do. (Check Image)
+
+If number of operations increases linearly with input size (means for input size n, we need n operations) then the
+time complexity of operation would be O(n).
+
+How quickly our run time grows in relation to the input size. This is what scalability means, if input grows larger
+does it scale ?
+
+
+O(1) -> Constant Time
+Below function does not depend on the input size. We are always printing first element.
+The number of operations just stays flat.
+public static void printFirst(List<String> arrayList) {
+    System.out.printLn(arrayList.get(0));
+}
+
+O(2)
+public static void printFirstTwo(List<String> arrayList) {
+    System.out.printLn(arrayList.get(0));
+    System.out.printLn(arrayList.get(1));
+}
+
+function funChallenge(input) {
+    let a = 30; // O(1), because this runs only once and does not depend on input size
+    a = a + 50; // O(1)
+
+    for(let i = 0; i< input.length; i++) { // O(n)
+        anotherFunction();  // O(n)
+        let stranger = true; // O(n)
+        a++; // O(n)
+    }
+    return a; // O(1)
+}
+
+BIG O(3 + 4n)
+
+function anotherFunChallenge(input) {
+    let a = 5; // O(1)
+    let b = 10; // O(1)
+    let c = 50; // O(1)
+    for (let i = 0; i < input; i++) { // O(n)  --> We can ignore these if we want
+        let x = i + 1; // O(n)
+        let y = i + 2; // O(n)
+        let z = i + 3; // O(n)
+    }
+
+    for (let j = 0; j < input; j++) { // O(n)
+        let p = j * 2; // O(n)
+        let q = j * 2; // O(n)
+    }
+    let whoAmI = "I don't know"; O(1)
+}
+
+BIG O(4 + 7n)
+
+>>>>>>>> RULE 1 : Worst Case
+Consider an arraylist of names.
+If nemo is at first place then we will find nemo in O(1)
+If it is the last element then we will have to iterate the entire loop.
+
+When we talk about BigO, we are talking about worst case.
+
+public class Example1 {
+    public static void main(String[] args) {
+        List<String> arrayList = Arrays.asList(
+                "dory", "bruce", "marlin", "gill", "bloat", "nigel", "sqirt", "darla", "hank", "nemo"
+        );
+        for(int i =0; i< arrayList.size(); i++) {
+            if(arrayList.get(i).equals("nemo")) {
+                System.out.println("Found Nemo !");
+                break;
+            }
+        }
+    }
+}
+
+>>>>>>>> RULE 2 : Remove constants
+Lets find out the BigO for the following function
+
+function printFirstItemThenFirstHalfThenSayHi100Times(items) {
+    console.log(items[0]);
+
+    var middleIndex = Math.floor(items.length / 2);
+    var index = 0;
+
+    while (index < middleIndex) {
+        console.log(items[index]);
+        index++;
+    }
+
+    for(var i = 0; i< 100; i++) {
+        console.log("Hi");
+    }
+}
+
+O (1 + n/ 2 + 100) ~ O(n)
+
+We drop the constants because as n grows larger, constants have no significance.
+
+>>>>>>>> RULE 3 : Different terms for inputs
+
+public void compressBoxesTwice(List<String> boxes, List<String> boxes1) {
+    boxes.forEach(b -> {
+        System.out.println(b);
+    });
+
+    boxes1.forEach(b -> {
+        System.out.println(b);
+    });
+}
+
+Lot of people gets confused and say the time complexity is O(n)
+First for loop depends on how big the first input is and
+The second for loop depends on how big the second input is.
+
+Time complexity : O(n + m)
+
+>>>>>>>>>>> Quadratic time complexity : O(n^2)
+
+Log all pairs of an array
+ */
+public class Example2 {
+
+    private static final int[] arr = {1,2,3,4,5};
+
+    public static void main(String[] args) {
+        for (int i=0; i< arr.length; i++) {
+            for(int j = 0; j< arr.length; j++) {
+                if(i != j)
+                    System.out.println(arr[i] + " , "+arr[j]);
+            }
+        }
+    }
+}
+
+
+>>>>>>>>>>>>>>>>>>> Rule 4: Drop non dominants
+We have to print all numbers and sum of each pairs in an array
+
+    public static void printAllNumbersThenPairSums(int[] arr) {
+        Arrays.stream(arr).forEach(number -> {
+            System.out.println(number);
+        });
+
+        Arrays.stream(arr).forEach(firstNumber -> {
+            Arrays.stream(arr).forEach(secondNumber -> {
+                int sum = firstNumber + secondNumber;
+                System.out.println(""+firstNumber+"" + "+" + ""+secondNumber+"" + " = "+sum);
+            });
+        });
+    }
+
+The time complexity of this function would be : O(n + n^2)
+But rule number 4 says we only care about dominant term and here n^2 is the dominant term.
+So the time complexity of above function is O(n^2)
+
+Use + when steps are in order : Different inputs should have different variable O(n + m)
+Use * for nested steps : Nested arrays O(n * m)
+
+>>>>>>>>>>>> Which code is Best ?
+3 pillars
+Readable
+Speed : Time complexity
+Memory : Space complexity
+
+Most programming problems have a tradeoff between speed and memory. You want to go faster, you will have to sacrifice memory.
+
+
+>>>>>>>>>>>> Space complexity
+
+When a program runs it has 2 ways to remember things : Heap and Stack
+Heap - We store variables
+Stack - We keep track of our function calls
+
+What causes space complexity ?
+Variables
+Data structures
+Function call
+Allocations
+
+function boo(n) {
+    for(let i=0; i< n.length; i++) {
+        console.log('boooooooooo !');
+    }
+}
+
+boo([1,2,3,4,5])
+
+This function has space complexity of O(1)
+The only variable that is created inside this function is i i.e i=0
+
+
+function arrayHiNTimes(n) {
+    let hiArray = [];
+    for(let i=0; i< n; i++) {
+        hiArray[i] = ''hi;
+    }
+    return hiArray;
+}
+
+arrayHiNTimes(6);
+
+Space complexity : O(n)
+
+=========================================================
+
+Logarithmic time complexity
+
+x = n
+while ( x > 0 ) {
+   x = x - 1
+}
+The above is  𝑂(𝑛)
+
+x = n
+while ( x > 0 ) {
+   x = x / 2
+}
+The above is  𝑂(log𝑛)
+
+
+x = n
+while ( x > 0 ) {
+  y = n
+  while ( y > 0 ) {
+      y = y / 2
+  }
+  x = x - 1
+}
+The above is  𝑂(𝑛log𝑛)
+
+x = n
+while ( x > 0 ) {
+  y = n
+  while ( y > 0 ) {
+      y = y - 1
+  }
+  x = x / 2
+}
+The above is  𝑂(𝑛log𝑛)
+
+https://www.quora.com/What%E2%80%99s-the-simple-explanation-for-O-n-log-n
+
+Well, logarithms are the more mathematically “fancy” way of writing exponents.
+
+You (i.e anyone!) can write  10^2=100
+and also write  𝑙𝑜𝑔10(100)=2.
+
+log_b(y) = x
+is another way of specifying the relationship:
+b^x = y
+
+
+2^ 4 = 16
+log_2(16) = 4
+
+
+

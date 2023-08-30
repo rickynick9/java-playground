@@ -1,0 +1,13 @@
+Directed or undirected graph
+Some type of system where movement is unidirectional is directed graph
+
+Facebook has undirected graph, A is friend of B then B is automatically friend of A.
+Twitter has directed graph. If A follows B then B does not become A's follower automatically.
+
+Weighted and Unweighted graph
+Most efficient ways to reach a destination.
+Google maps - calculate optimal path.
+
+Cyclic and Acyclic
+Cyclic - To get back to the node from where we started.
+

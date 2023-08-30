@@ -1,0 +1,778 @@
+>>>>>>>>>> What is thread safety ?
+Writing thread-safe code is, at its core, about managing access to state, and in particular to shared, mutable state.
+We are trying to protect data from uncontrolled concurrent access.
+
+Making an object thread-safe requires using synchronization to coordinate access to its mutable state;
+failing to do so could result in data corruption and other undesirable consequences.
+
+>>>>>>>>>> What is Object State ?
+An object’s state is its data, stored in state variables such as instance or static fields.
+An object’s state may include fields from other, dependent objects.
+
+>>>>>>>>>> What do we mean by shared and mutable ?
+By shared, we mean that a variable could be accessed by multiple threads; by mutable, we mean that its value could
+change during its lifetime.
+
+>>>>>>>>>> What is primary mechanism for synchronization ?
+The primary mechanism for synchronization in Java is the synchronized keyword, which provides exclusive locking.
+
+>>>>>>>>>> What should you do if multiple threads access same mutable state variable ?
+    Don’t share the state variable across threads;
+    Make the state variable immutable; or
+    Use synchronization whenever accessing the state variable.
+
+>>>>>>>>>> How encapsulation can help ?
+The Java language doesn’t force you to encapsulate state— it is perfectly allowable to store state in public fields
+(even public static fields) or publish a reference to an otherwise internal object—but the better encapsulated your
+program state, the easier it is to make your program thread-safe and to help maintainers keep it that way.
+
+>>>>>>>>>> How to design thread safe classes ?
+good object-oriented techniques— encapsulation, immutability
+In any case, the concept of a thread-safe class makes sense only if the class encapsulates its own state.
+Thread safety may be a term that is applied to code, but it is about state.
+
+>>>>>>>>>> Stateless objects are always thread-safe ?
+Since the actions of a thread accessing a stateless object cannot affect the correctness of operations in
+other threads, stateless objects are thread- safe.
+Example of a stateless servlet
+
+@ThreadSafe
+public class StatelessFactorizer implements Servlet {
+    public void service(ServletRequest req, ServletResponse resp) {
+        BigInteger i = extractFromRequest(req);
+        BigInteger[] factors = factor(i);
+        encodeIntoResponse(resp, factors);
+    }
+}
+
+StatelessFactorizer is stateless: it has no fields and references no fields from other classes.
+The transient state for a particular computation exists solely in local variables that are stored on the
+thread’s stack and are accessible only to the executing thread. One thread accessing a StatelessFactorizer
+cannot influence the result of another thread accessing the same StatelessFactorizer; because the two threads
+do not share state.
+
+It is only when servlets want to remember things from one request to another that the thread safety requirement
+becomes an issue.
+
+>>>>>>>>>> What is Atomicity ? Are atomic operations thread safe ?
+Lets add “hit counter” in our previous example that measures the number of requests processed.
+
+@NotThreadSafe
+public class UnsafeCountingFactorizer implements Servlet {
+    private long count = 0;
+    public long getCount() {
+        return count;
+    }
+    public void service(ServletRequest req, ServletResponse resp) {
+        BigInteger i = extractFromRequest(req);
+        BigInteger[] factors = factor(i);
+        ++count;
+        encodeIntoResponse(resp, factors);
+    }
+}
+While the increment operation, ++count, may look like a single action because of its compact syntax, it is not atomic,
+which means that it does not execute as a single, indivisible operation. Instead, it is a shorthand for a sequence of
+three discrete operations: fetch the current value, add one to it, and write the new value back.
+This is an example of a read-modify-write operation, in which the resulting state is derived from the previous state.
+
+>>>>> Race conditions
+A race condition occurs when the correctness of a computation depends on the relative timing or interleaving of
+multiple threads by the runtime; in other words, when getting the right answer relies on lucky timing.
+
+check-then-act: you observe something to be true (file X doesn’t exist) and then take action based on that observation
+(create X); but in fact the observation could have become invalid between the time you observed it and the time you acted
+on it.
+
+>>>>> Compound operations must be executed atomically to ensure thread safety
+check-then-act and read-modify-write sequences are compound actions:
+sequences of operations that must be executed atomically in order to remain thread-safe.
+
+We can consider locking, Java built-in mechanism to ensure atomicity. There is another way to ensure atomicity, by using
+an existing thread-safe class : AtomicLong
+
+@ThreadSafe
+public class CountingFactorizer implements Servlet {
+    private final AtomicLong count = new AtomicLong(0);
+    public long getCount() {
+        return count.get();
+    }
+    public void service(ServletRequest req, ServletResponse resp) {
+        BigInteger i = extractFromRequest(req);
+        BigInteger[] factors = factor(i);
+        count.incrementAndGet();
+        encodeIntoResponse(resp, factors);
+    }
+}
+
+By replacing the long counter with an AtomicLong, we ensure that all actions that access the counter state are atomic.
+Because the state of the servlet is the state of the counter and the counter is thread-safe, our servlet is once again
+thread-safe.
+
+>>>>> Can we just add more thread-safe state variables?
+Imagine that we want to improve the performance of our servlet by caching the most recently computed result,
+just in case two consecutive clients request factorization of the same number.
+
+To implement this strategy, we need to remember two things: the last number factored, and its factors.
+We used AtomicLong to manage the counter state in a thread-safe manner; could we perhaps use its cousin, AtomicReference,
+to manage the last number and its factors?
+
+@NotThreadSafe
+public class UnsafeCachingFactorizer implements Servlet {
+
+    private final AtomicReference<BigInteger> lastNumber = new AtomicReference<BigInteger>();
+    private final AtomicReference<BigInteger[]> lastFactors = new AtomicReference<BigInteger[]>();
+
+    public void service(ServletRequest req, ServletResponse resp) {
+        BigInteger i = extractFromRequest(req);
+        if (i.equals(lastNumber.get()))
+            encodeIntoResponse(resp, lastFactors.get());
+        else {
+            BigInteger[] factors = factor(i);
+            lastNumber.set(i);
+            lastFactors.set(factors);
+            encodeIntoResponse(resp, factors);
+        }
+    }
+}
+
+Even though the atomic references are individually thread-safe, UnsafeCachingFactorizer has race conditions that could
+make it produce the wrong answer.
+
+Using atomic references, we cannot update both lastNumber and lastFactors simultaneously, even though each call to set is
+atomic; there is still a win- dow of vulnerability when one has been modified and the other has not.
+
+TO PRESERVE STATE CONSISTENCY, UPDATE RELATED STATE VARIABLES IN A SINGLE ATOMIC OPERATION.
+
+
+>>>>>> What do you mean by Intrinsic locks or Monitor Locks ?
+Java provides a built-in locking mechanism for enforcing atomicity: the synchronized block.
+A synchronized block has two parts: a reference to an object that will serve as the lock,
+and a block of code to be guarded by that lock.
+
+The lock is automatically acquired by the executing thread before entering a synchronized block and automatically
+released when control exits the synchronized block. The only way to acquire an intrinsic lock is to enter a synchronized
+block or method guarded by that lock.
+
+Intrinsic locks in Java act as mutexes (or mutual exclusion locks), which means that at most one thread may own the lock.
+When thread A attempts to acquire a lock held by thread B, A must wait, or block, until B releases it.
+If B never releases the lock, A waits forever.
+
+Since only one thread at a time can execute a block of code guarded by a given lock, the synchronized blocks guarded by
+the same lock execute atomically with respect to one another. In the context of concurrency, atomicity means the same
+thing as it does in transactional applications—that a group of statements appear to execute as a single, indivisible unit.
+
+
+>>>>>>> What is Reentrancy ? Are synchronized blocks reentrant ?
+Intrinsic locks are reentrant, if a thread tries to acquire a lock that it already holds, the request succeeds.
+Reentrancy means that locks are acquired on a per-thread rather than per-invocation basis.
+
+Reentrancy is implemented by associating with each lock an acquisition count and an owning thread.
+When the count is zero, the lock is considered unheld. When a thread acquires a previously unheld lock, the JVM records
+the owner and sets the acquisition count to one. If that same thread acquires the lock again, the count is incremented,
+and when the owning thread exits the synchronized block, the count is decremented. When the count reaches zero, the
+lock is released.
+
+Without reentrant locks, the very natural-looking code below, in which a subclass overrides a synchronized method and
+then calls the superclass method, would deadlock.
+
+public class Widget {
+    public synchronized void doSomething() {
+        ...
+    }
+}
+
+public class LoggingWidget extends Widget {
+    public synchronized void doSomething() {
+        System.out.println(toString() + ": calling doSomething");
+        super.doSomething();
+    }
+}
+
+Because the doSomething methods in Widget and LoggingWidget are both synchronized, each tries to acquire the lock on
+the Widget before proceeding. But if intrinsic locks were not reentrant, the call to super.doSomething would never be
+able to acquire the lock because it would be considered already held, and the thread would permanently stall waiting
+for a lock it can never acquire.
+
+
+>>>>>>>> Compound Actions Must Be Atomic
+Compound actions on shared state, such as incrementing a hit counter (read- modify-write) or lazy initialization
+(check-then-act), must be made atomic to avoid race conditions. Holding a lock for the entire duration of a compound action
+can make that compound action atomic. However, just wrapping the compound action with a synchronized block is not sufficient;
+if synchronization is used to coordinate access to a variable, it is needed everywhere that variable is accessed.
+
+>>>>>>>>  Acquiring the lock associated with an object does not prevent other threads from accessing
+Acquiring the lock associated with an object does not prevent other threads from accessing that object—the only
+thing that acquiring a lock prevents any other thread from doing is acquiring that same lock.
+
+Every shared, mutable variable should be guarded by exactly one lock. Make it clear to maintainers which lock that is.
+
+The fact that every object has a built-in lock is just a convenience so that you needn’t explicitly create lock objects.
+
+
+>>>>>>>>> Performance And Narrowing the scope of the synchronized block
+
+Because service is synchronized, only one thread may execute it at once. This subverts the intended use of the servlet
+framework—that servlets be able to handle multiple requests simultaneously—and can result in frustrated users if the
+load is high enough.
+
+If the servlet is busy factoring a large number, other clients have to wait until the current request is complete before
+the servlet can start on the new number.
+
+If the system has multiple CPUs, processors may remain idle even if the load is high.
+
+Even short-running requests, such as those for which the value is cached, may take an unexpectedly long time because
+they must wait for previous long-running requests to complete.
+
+What happens when multiple requests arrive for the synchronized factoring servlet: they queue up and are handled
+sequentially. We would describe this web application as exhibiting poor concurrency: the number of simultaneous invocations
+is limited not by the availability of processing resources, but by the structure of the application itself.
+
+Fortunately, it is easy to improve the concurrency of the servlet while maintaining thread safety by narrowing the
+scope of the synchronized block. It is reasonable to try to exclude from synchronized blocks long-running operations
+that do not affect shared state, so that other threads are not prevented from accessing the shared state while the
+long-running operation is in progress.
+
+>>>>>>>>> Synchronization is not only about atomicity or demarcating critical section
+It is also about memory visibility
+
+In order to ensure visibility of memory writes across threads, you must use synchronization.
+Sharing variables without synchronization. Don’t do this.
+
+Unless synchronization is used every time a variable is accessed, it is possible to see a stale value for that variable.
+Things can get even more complicated with stale values of object references, such as the link pointers in a linked list
+implementation. Stale data can cause serious and confusing failures such as unexpected exceptions, corrupted data structures,
+inaccurate computations, and infinite loops.
+
+Synchronizing only the setter would not be sufficient: threads calling get would still be able to see stale values.
+
+@ThreadSafe
+public class SynchronizedInteger {
+    @GuardedBy("this") private int value;
+
+    public synchronized int get() {
+        return value;
+    }
+    public synchronized void set(int value) {
+        this.value = value;
+    }
+}
+
+
+>>>>>>>>>>> Nonatomic 64-bit operations
+The Java Memory Model requires fetch and store operations to be atomic, but for nonvolatile long and double variables,
+the JVM is permitted to treat a 64-bit read or write as two separate 32-bit operations. If the reads and writes occur
+in different threads, it is therefore possible to read a nonvolatile long and get back the high 32 bits of one value and
+the low 32 bits of another.
+
+It is not safe to use shared mutable long and double variables in multithreaded programs unless they are declared
+volatile or guarded by a lock.
+
+
+>>>>>>>>>>> Guarded by same lock/ Synchronize on common lock
+Everything thread A did in or prior to a synchronized block is visible to thread B when it executes a synchronized block
+guarded by the same lock.
+
+Locking is not just about mutual exclusion; it is also about memory visibility. To ensure that all threads see the
+most up-to-date values of shared mutable variables, the reading and writing threads must synchronize on a common lock.
+
+
+>>>>>>>>>>> Volatile variables, weaker form of synchronization
+
+When a field is declared volatile, the compiler and runtime are put on notice that this variable is shared and that
+operations on it should not be reordered with other memory operations. Volatile variables are not cached in registers
+or in caches where they are hidden from other processors, so a read of a volatile variable always returns the most
+recent write by any thread.
+
+From a memory visibility perspective, writing a volatile variable is like exiting a synchronized block and reading
+a volatile variable is like entering a synchronized block.
+
+However, we do not recommend relying too heavily on volatile variables for visibility; code that relies on volatile
+variables for visibility of arbitrary state is more fragile and harder to understand than code that uses locking.
+
+The most common use for volatile variables is as a completion, interruption, or status flag.
+
+
+>>>>>>>>>>>> Stack confinement Of Local Variables
+Local variables are intrinsically confined to the executing thread ; they exist on the executing thread’s stack,
+which is not accessible to other threads.
+
+For primitively typed local variables, such as numPairs in loadTheArk in example below , you cannot violate stack
+confinement even if you tried. There is no way to obtain a reference to a primitive variable, so the language
+semantics ensure that primitive local variables are always stack confined.
+
+Maintaining stack confinement for object references requires a little more assistance from the programmer to
+ensure that the referent does not escape.
+
+
+>>>>>>>> Publication and escape
+
+Making an object available to code outside its scope is called publishing an object. Publishing internal state
+variables can compromise encapsulation and make it more difficult to preserve invariants. Publishing objects before
+they are fully constructed can compromise thread safety. An object that is published when it should not have been,
+is said have escaped.
+
+How to publish an object:
+    Store a reference of the object in a public static field
+    Return the object from a non-private method
+    Publish an instance of an inner class — Because inner class contains a hidden reference to the enclosing instance.
+    (escaping this reference)
+    Publishing one object may indirectly publish other (collections)
+
+Publishing an object means making it available to code outside of its current scope, such as by storing a reference to
+it where other code can find it, returning it from a nonprivate method, or passing it to a method in another class.
+
+Publishing internal state variables can compromise encapsulation and make it more difficult to preserve invariants;
+publishing objects before they are fully constructed can compromise thread safety.
+
+The most blatant form of publication is to store a reference in a public static field, where any class and thread
+could see it
+
+public static Set<Secret> knownSecrets;
+public void initialize() {
+    knownSecrets = new HashSet<Secret>();
+}
+
+If you add a Secret to the published knownSecrets set, you’ve also published that Secret, because any code can iterate
+the Set and obtain a reference to the new Secret.
+
+Similarly, returning a reference from a nonprivate method also publishes the returned ob- ject.
+class UnsafeStates {
+    private String[] states = new String[] {AK", "AL" ...};
+    public String[] getStates() {
+        return states;
+    }
+}
+
+Allowing internal mutable state to escape. Don’t do this.
+
+Publishing states in this way is problematic because any caller can modify its contents. In this case, the states
+array has escaped its intended scope, because what was supposed to be private state has been effectively made public.
+
+Any object that is reachable from a published object by following some chain of nonprivate field references and
+method calls has also been published.
+
+This is a compelling reason to use encapsulation.
+
+
+>>>>>>>>>>> ThreadLocal
+
+This technique can also be used when a frequently used operation requires a temporary object such as a buffer and
+wants to avoid reallocating the temporary object on each invocation.
+
+Conceptually, you can think of a ThreadLocal<T> as holding a Map<Thread,T> that stores the thread-specific values,
+though this is not how it is actually implemented. If you are porting a single-threaded application to a multithreaded
+environment, you can preserve thread safety by converting shared global variables into ThreadLocals.
+
+
+>>>>>>>>>> Immutable objects are always thread-safe
+An immutable object is one whose state cannot be changed after construction.
+Immutable objects are inherently thread-safe; their invariants are established by the constructor, and if their state
+cannot be changed, these invariants always hold.
+
+But immutability is not equivalent to simply declaring all fields of an object final. An object whose fields are all
+final may still be mutable, since final fields can hold references to mutable objects.
+
+Immutable objects can still use mutable objects internally to manage their state.
+
+public final class ThreeStooges {
+    private final Set<String> stooges = new HashSet<String>();
+    public ThreeStooges() {
+        stooges.add("Moe");
+        stooges.add("Larry");
+        stooges.add("Curly");
+    }
+    public boolean isStooge(String name) {
+        return stooges.contains(name);
+    }
+}
+
+While the Set that stores the names is mutable, the design of ThreeStooges makes it impossible to modify that
+Set after construction.
+
+Just as it is a good practice to make all fields private unless they need greater visibility,
+it is a good practice to make all fields final unless they need to be mutable.
+
+
+>>>>>>>>> Designing a thread safe class
+Identify the variables that form the object’s state;
+Identify the invariants that constrain the state variables;
+Establish a policy for managing concurrent access to the object’s state.
+
+
+>>>>>>>> Thread safe counter class using Java Monitor pattern
+
+@ThreadSafe
+public final class Counter {
+    @GuardedBy("this") private long value = 0;
+
+    public synchronized long getValue() {
+        return value;
+    }
+
+    public synchronized long increment() {
+        if (value == Long.MAX_VALUE)
+            throw new IllegalStateException("counter overflow");
+        return ++value;
+    }
+}
+
+>>>>>>>>>> Narrow state space, in extreme cases make it immutable
+Objects and variables have a state space: the range of possible states they can take on. The smaller this state space,
+the easier it is to reason about. By using final fields wherever practical, you make it simpler to analyze the possible
+states an object can be in. (In the extreme case, immutable objects can only be in a single state.)
+
+Collection classes often exhibit a form of “split ownership”, in which the collection owns the state of the collection
+infrastructure, but client code owns the objects stored in the collection.
+
+>>>>>>>>>> Ownership and state and Encapsulation
+The object encapsulates the state it owns and owns the state it encapsulates. It is the owner of a given state
+variable that gets to decide on the locking protocol used to maintain the integrity of that variable’s state.
+Ownership implies control, but once you publish a reference to a mutable object, you no longer have exclusive control.
+
+
+>>>>>>>>>> Synchronization and encapsulation requirements OR Locking and state confinement
+If certain states are invalid, then the underlying state variables must be encapsulated, otherwise client code could
+put the object into an invalid state.
+
+Confined objects must not escape their intended scope. An object may be confined to a class instance
+(such as a private class member), a lexical scope (such as a local variable), or a thread
+(such as an object that is passed from method to method within a thread, but not supposed to be shared across threads).
+
+PersonSet illustrates how confinement and locking can work together to make a class thread-safe even when its
+component state variables are not.
+
+The state of PersonSet is managed by a HashSet, which is not thread-safe. But because mySet is private and not
+allowed to escape, the HashSet is confined to the PersonSet.
+
+The only code paths that can access mySet are addPerson and containsPerson, and each of these acquires the lock on
+the PersonSet. All its state is guarded by its intrinsic lock, making PersonSet thread-safe.
+
+Instance confinement is one of the easiest ways to build thread-safe classes. It also allows flexibility in the
+choice of locking strategy; PersonSet happened to use its own intrinsic lock to guard its state, but any lock,
+consistently used, would do just as well. Instance confinement also allows different state variables to be guarded
+by different locks.
+
+@ThreadSafe
+public class PersonSet {
+    @GuardedBy("this")
+    private final Set<Person> mySet = new HashSet<Person>();
+
+    public synchronized void addPerson(Person p) {
+        mySet.add(p);
+    }
+
+    public synchronized boolean containsPerson(Person p) {
+        return mySet.contains(p);
+    }
+}
+
+Confined objects can also escape by publishing other objects such as iterators or inner class instances that may
+indirectly publish the confined objects.
+
+
+>>>>>>>>> The Basic Collection Classes
+The basic collection classes such as ArrayList and HashMap are not thread-safe, but the class library provides
+wrapper factory methods (Collections.synchronizedList and friends) so they can be used safely in multi-threaded
+environments. These factories use the Decorator pattern to wrap the collection with a synchronized wrapper
+object; the wrapper implements each method of the appropriate interface as a synchronized method that forwards the
+request to the underlying collection object.
+
+
+
+
+>>>>>>>>>>>>> Tracking fleet vehicles
+
+Each vehicle is identified by a String and has a location represented by (x, y) coordinates.
+The VehicleTracker classes encapsulate the identity and locations of the known vehicles.
+
+The view thread would fetch the names and locations of the vehicles and render them on a display
+Map<String, Point> locations = vehicles.getLocations();
+for (String key : locations.keySet())
+    renderVehicle(key, locations.get(key));
+
+Similarly, the updater threads would modify vehicle locations with data re- ceived from GPS devices
+void vehicleMoved(VehicleMovedEvent evt) {
+    Point loc = evt.getNewLocation();
+    vehicles.setLocation(evt.getVehicleId(), loc.x, loc.y);
+}
+
+Since the view thread and the updater threads will access the data model concurrently, it must be thread-safe.
+Nn implementation of the vehicle tracker using the Java monitor pattern that uses MutablePoint for representing the
+vehicle locations.
+
+Even though MutablePoint is not thread-safe, the tracker class is. Neither the map nor any of the mutable points it
+contains is ever published. When we need to return vehicle locations to callers, the appropriate values are copied
+using either the MutablePoint copy constructor or deepCopy, which creates a new Map whose values are copies of the
+keys and values from the old Map.
+
+This implementation maintains thread safety in part by copying mutable data before returning it to the client. This is
+usually not a performance issue, but could become one if the set of vehicles is very large.
+
+Copying the data on each call to getLocation is that the contents of the returned collection do not change even if
+the underlying locations change. This solution will not work if returning a consistent snapshot is critical.
+
+@NotThreadSafe
+public class MutablePoint {
+    public int x, y;
+    public MutablePoint() {
+        x = 0;
+        y = 0;
+    }
+    public MutablePoint(MutablePoint p) {
+        this.x = p.x;
+        this.y = p.y;
+    }
+}
+
+@ThreadSafe
+public class MonitorVehicleTracker {
+    @GuardedBy("this")
+    private final Map<String, MutablePoint> locations;
+
+    public MonitorVehicleTracker(Map<String, MutablePoint> locations) {
+        this.locations = deepCopy(locations);
+    }
+
+    public synchronized Map<String, MutablePoint> getLocations() {
+        return deepCopy(locations);
+    }
+
+    public synchronized MutablePoint getLocation(String id) {
+        MutablePoint loc = locations.get(id);
+        return loc == null ? null : new MutablePoint(loc);
+    }
+
+    public synchronized void setLocation(String id, int x, int y) {
+        MutablePoint loc = locations.get(id);
+        if (loc == null)
+            throw new IllegalArgumentException("No such ID: " + id);
+        loc.x = x;
+        loc.y = y;
+    }
+
+    private static Map<String, MutablePoint> deepCopy( Map<String, MutablePoint> m) {
+        Map<String, MutablePoint> result = new HashMap<String, MutablePoint>();
+        for (String id : m.keySet())
+            result.put(id, new MutablePoint(m.get(id)));
+        return Collections.unmodifiableMap(result);
+    }
+}
+
+
+
+>>>>>>>>>>>>> Do we need additonal thread safety if components of our class is thread safe ?
+
+The Java monitor pattern is useful when building classes from scratch or composing classes out of objects that are
+not thread-safe. But what if the components of our class are already thread-safe? Do we need to add an additional
+layer of thread safety? The answer is . . . “it depends”. In some cases a composite made of thread-safe components
+is thread-safe.
+
+Individual thread safe elements/objects inside a class does not mean that the class is thread safe.
+We have seen an example of Factor where we had 2 fields int num and array to store factor result.
+
+@Immutable
+public class Point {
+    public final int x, y;
+    public Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+   }
+}
+
+Point is thread-safe because it is immutable. Immutable values can be freely shared and published, so we no longer
+need to copy the locations when returning them.
+
+DelegatingVehicleTracker does not use any explicit synchronization; all access to state is managed by ConcurrentHashMap,
+and all the keys and values of the Map are immutable.
+
+@ThreadSafe
+public class DelegatingVehicleTracker {
+    private final ConcurrentMap<String, Point> locations;
+    private final Map<String, Point> unmodifiableMap;
+
+    public DelegatingVehicleTracker(Map<String, Point> points) {
+        locations = new ConcurrentHashMap<String, Point>(points);
+        unmodifiableMap = Collections.unmodifiableMap(locations);
+    }
+
+    public Map<String, Point> getLocations() {
+        //return Collections.unmodifiableMap(new HashMap<String, Point>(locations));
+        return unmodifiableMap;
+    }
+
+    public Point getLocation(String id) {
+        return locations.get(id);
+    }
+
+    public void setLocation(String id, int x, int y) {
+        if (locations.replace(id, new Point(x, y)) == null)
+            throw new IllegalArgumentException( "invalid vehicle name: " + id);
+    }
+}
+
+If we had used the original MutablePoint class instead of Point, we would be breaking encapsulation by letting
+getLocations publish a reference to mutable state that is not thread-safe.
+
+If underlying state variables are not independent, we cannot simply delegate thread safety to its thread-safe variables.
+If a class is composed of multiple independent thread-safe state variables and has no operations that have any invalid
+state transitions, then it can delegate thread safety to the underlying state variables.
+
+
+>>>>>>>>>> Client Side Locking / What happens when you synchronize on wrong lock
+
+
+@NotThreadSafe
+public class ListHelper<E> {
+    public List<E> list = Collections.synchronizedList(new ArrayList<E>());
+    ...
+    public synchronized boolean putIfAbsent(E x) {
+        boolean absent = !list.contains(x);
+        if (absent)
+            list.add(x);
+
+        return absent;
+    }
+}
+
+This is Non-thread-safe attempt to implement put-if-absent. Don’t do this.
+Why wouldn’t this work? After all, putIfAbsent is synchronized, right? The problem is that it synchronizes on
+the wrong lock.
+Whatever lock the List uses to guard its state, it sure isn’t the lock on the ListHelper. ListHelper provides only
+the illusion of synchronization; the various list operations, while all synchronized, use different locks, which means
+that putIfAbsent is not atomic relative to other operations on the List.
+
+To make this approach work, we have to use the same lock that the List uses by using client-side locking or
+external locking.
+
+@ThreadSafe
+public class ListHelper<E> {
+    public List<E> list = Collections.synchronizedList(new ArrayList<E>());
+    ...
+    public boolean putIfAbsent(E x) {
+        synchronized (list) {
+            boolean absent = !list.contains(x);
+            if (absent)
+                list.add(x);
+            return absent;
+        }
+    }
+}
+Implementing put-if-absent with client-side locking.
+
+If extending a class to add another atomic operation is fragile because it distributes the locking code for a class
+over multiple classes in an object hierarchy, client-side locking is even more fragile because it entails putting
+locking code for class C into classes that are totally unrelated to C. Exercise care when using client-side locking
+on classes that do not commit to their locking strategy.
+
+
+>>>>>>>>>>>>>>>> Synchronized collection
+
+The synchronized collection classes guard each method with the lock on the synchronized collection object itself.
+The standard way to iterate a Collection is with an Iterator, either explicitly or through the for-each loop syntax
+introduced in Java 5.0, but using iterators does not obviate the need to lock the collection during iteration if
+other threads can concurrently modify it. The iterators returned by the synchronized collections are not designed to
+deal with concurrent modification, and they are fail-fast—meaning that if they detect that the collection has changed
+since iteration began, they throw the unchecked ConcurrentModificationException.
+
+These fail-fast iterators are not designed to be foolproof—they are designed to catch concurrency errors on a
+“good-faith-effort” basis and thus act only as early-warning indicators for concurrency problems.
+
+They are implemented by associating a modification count with the collection: if the modification count changes
+during iteration, hasNext or next throws ConcurrentModificationException. However, this check is done without
+synchronization, so there is a risk of seeing a stale value of the modification count and therefore that the iterator
+does not realize a modification has been made.
+
+This was a deliberate design tradeoff to reduce the performance impact of the concurrent modification detection code.
+
+There are several reasons, however, why locking a collection during iteration may be undesirable. Other threads that
+need to access the collection will block until the iteration is complete; if the collection is large or the task
+performed for each element is lengthy, they could wait a long time.
+
+The longer a lock is held, the more likely it is to be contended, and if many threads are blocked waiting for a lock
+throughput and CPU utilization can suffer.
+
+An alternative to locking the collection during iteration is to clone the collection and iterate the copy instead.
+Since the clone is thread-confined, no other thread can modify it during iteration, eliminating the possibility of
+ConcurrentModificationException.
+Cloning the collection has an obvious performance cost; whether this is a favorable tradeoff depends on many factors
+including the size of the collection, how much work is done for each element, the relative frequency of iteration
+compared to other collection operations, and responsiveness and throughput requirements.
+
+Just as encapsulating an object’s state makes it easier to preserve its in-variants, encapsulating its synchronization
+makes it easier to enforce its synchronization policy.
+
+>>>>>>>>>>>>> Concurrent collection
+
+Java 5.0 improves on the synchronized collections by providing several concurrent collection classes. Synchronized collections achieve their thread safety by serial- izing all access to the collection’s state. The cost of this approach is poor concur- rency; when multiple threads contend for the collection-wide lock, throughput suffers.
+The concurrent collections, on the other hand, are designed for concurrent ac- cess from multiple threads.
+
+ConcurrentHashMap is a hash-based Map like HashMap, but it uses an entirely different locking strategy that offers
+better concurrency and scalability. Instead of synchronizing every method on a common lock, restricting access to a
+single thread at a time, it uses a finer-grained locking mechanism called lock striping (see Section 11.4.3) to allow
+a greater degree of shared access. Arbitrarily many reading threads can access the map concurrently, readers can
+access the map concurrently with writers, and a limited number of writers can modify the map concurrently. The result
+is far higher throughput under concurrent access, with little performance penalty for single-threaded access.
+
+ConcurrentHashMap, along with the other concurrent collections, further im- prove on the synchronized collection
+classes by providing iterators that do not throw ConcurrentModificationException, thus eliminating the need to
+lock the collection during iteration. The iterators returned by ConcurrentHashMap are weakly consistent instead of
+fail-fast. A weakly consistent iterator can tolerate concurrent modification, traverses elements as they existed
+when the iterator was constructed,
+
+Only if your application needs to lock the map for exclusive access3 is Concurrent- HashMap not an appropriate drop-in
+replacement.
+
+>>>>>>>>>>>>>> CopyOnWriteArrayList
+
+CopyOnWriteArrayList is a concurrent replacement for a synchronized List that offers better concurrency in some common
+situations and eliminates the need to lock or copy the collection during iteration.
+
+The copy-on-write collections derive their thread safety from the fact that as long as an effectively immutable object
+is properly published, no further synchronization is required when accessing it.
+
+They implement mutability by creating and republishing a new copy of the collection every time it is modified.
+The iterators returned by the copy-on-write collections do not throw ConcurrentModificationException and return the
+elements exactly as they were at the time the iterator was created, regardless of subsequent modifications.
+
+Obviously, there is some cost to copying the backing array every time the collection is modified, especially if the
+collection is large; the copy-on-write collections are reasonable to use only when iteration is far more common
+than modification.
+
+>>>>>>>>>> Blocking Queue And Producer Consumer Pattern
+
+BlockingQueue extends Queue to add blocking insertion and retrieval operations. If the queue is empty, a retrieval
+blocks until an element is available, and if the queue is full (for bounded queues) an insertion blocks until there is
+space available. Blocking queues are extremely useful in producer-consumer designs.
+
+Queues can be bounded or unbounded; unbounded queues are never full, so a put on an unbounded queue never blocks.
+Blocking queues support the producer-consumer design pattern.
+
+A producer- consumer design separates the identification of work to be done from the execution of that work by
+placing work items on a “to do” list for later processing, rather than processing them immediately as they are identified.
+
+One of the most common producer-consumer designs is a thread pool coupled with a work queue.
+
+If the producers don’t generate work fast enough to keep the consumers busy, the consumers just wait until more
+work is available.
+
+If the producers consistently generate work faster than the consumers can process it, eventually the application will
+run out of memory because work items will queue up without bound. Again, the blocking nature of put greatly simplifies
+coding of producers; if we use a bounded queue, then when the queue fills up the producers block, giving the consumers
+time to catch up because a blocked producer cannot generate more work.
+
+>>>>>>>>>> Deque
+
+A Deque is a double-ended queue that allows efficient insertion and removal from both the head and the tail.
+Just as blocking queues lend themselves to the producer-consumer pattern, deques lend themselves to a related pattern
+called work stealing.
+
+In a work stealing design, every consumer has its own deque. If a consumer exhausts the work in its own deque, it can
+steal work from the tail of someone else’s deque. Work stealing can be more scalable than a traditional
+producer-consumer design because work- ers don’t contend for a shared work queue; most of the time they access only
+their own deque, reducing contention. When a worker has to access another’s queue, it does so from the tail rather
+than the head, further reducing contention.
+
+
+>>>>>>>>>>>>> cache implementation
+
+The Computable<A,V> interface in Listing 5.16 describes a function with input of type A and result of type V.

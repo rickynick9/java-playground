@@ -1,0 +1,173 @@
+Volatile Keyword
+
+https://github.com/mtumilowicz
+
+
+Suppose there is a shared resource which is an int variable waits to be updated. For each thread, there are three
+values involved:
+
+V: the current value of this int variable in main memory
+E: the value of the int variable that this thread expects to be
+N: the new value this thread wants to set to the int variable
+
+The core operation is the CAS. In order to set the new value to the variable, a thread must follow three steps:
+
+1. Fetch the current value of the variable in main memory which is V
+2. Compare V with the expected value E
+3. If V equals to E, set the value of the variable to N. If not, try again.
+
+These last two steps are guaranteed as one atomic operation by low level implementation.
+
+A typical i++ operation is not thread-safe since there are actually three operations going on under the hood:
+1. fetch the value of i from a temporary location;
+2. increment i;
+3. give back the original value of i stored in the temporary location.
+With AtomicInteger, one can invoke getAndIncrement() method on an instance of it to achieve the same purpose.
+However, this method is thread-safe since it is implemented using CAS.
+
+
+Volatile example
+
+// the static variable `stop` is shared by the threads started below
+static boolean stop = false;
+public static void main(String[] args) {
+    // started a new thread with the name of WRITE-THREAD
+    new Thread(new Runnable() {
+        @Override
+        public void run() {
+            stop = true;
+        }
+    }, "WRITE-THREAD").start();
+    // started a new thread with the name of READ-THREAD
+    new Thread(new Runnable() {
+        @Override
+        public void run() {
+            while (!stop) {}
+        }
+    }, "READ-THREAD").start();
+}
+
+The READ-THREAD keeps executing the while loop if the stop is false. When the WRITE-THREAD sets the stop to true,
+the READ-THREAD should terminate immediately.
+
+In some rare cases the program would never terminate. To make the problem more prominent, one can make the
+WRITE-THREAD sleep for a while before execute the stop = true; statement. Then the code of WRITE-THREAD becomes:
+
+new Thread(new Runnable() {
+    @Override
+    public void run() {
+        try {
+            Thread.sleep(100); // block this thread for 100 ms
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        stop = true;
+    }
+}, "WRITE-THREAD").start();
+
+The flow is as below
+1. WRITE-THREAD and READ-THREAD are both started by the main thread and go into the RUNNABLE state.
+(Check out the enum class java.lang.Thread.State for all the possible states of a thread except “running” state)
+
+2. The WRITE-THREAD starts to sleep immediately after it goes into the running state. And the READ-THREAD enters
+the while loop and keeps reading the value of stop. (It doesn’t matter which thread goes into running state first
+because the final result is the same)
+
+3. When the WRITE-THREAD wakes up from sleep after 100 milliseconds, it will set the value of stop to true.
+
+4. The READ-THREAD reads the value of stop again which is true at this moment, and breaks the loop.
+
+However, in reality, the loop continues. So the stop is never changed by the WRITE-THREAD. How is this possible?
+In order to uncover the cause of this problem, we have to have a bit knowledge of how threads read and write the
+value of variables from memory.
+
+When a thread takes a read/write operation on a value, the operation may happen either from
+1. main memory
+ OR
+2. the CPU cache used by the thread.
+
+The CPU cache used by the thread is local to the thread itself. The cache is used for performance considerations, so
+that a read/write operation can just occur in the cache rather than in the main memory which is more expensive for
+threads to perform such operations.
+
+For a typical write operation, the thread writes to the CPU cache that is local to the thread first. And then the
+written value is flushed to the main memory. However, one cannot decide for sure that the flush occurs. Likewise, in
+some scenarios, the read operation may just occur in the cache for the read thread.
+
+Think of this: the execution flow of a read thread is determined by a shared variable. Another thread changed to value
+of the shared variable but the change hasn’t been flushed to the memory in time. Or the change had been flushed to
+the memory, but for some reasons, the read operation reads the value of the shared variable from its CPU cache instead
+of the main memory. Unexpected results can surely arise from such a situation.
+
+Back to our previous code. When the WRITE-THREAD starts, it goes immediately into blocked state due to the invocation
+of Thread.sleep(100). Now, the READ-THREAD goes into the while loop and stays in the loop. After 100 milliseconds,
+the WRITE-THREAD wakes up and updated the value of stop. Chances are the updated value, which is true now, is flushed
+to the main memory. But the while loop is so optimized that it just busy reading from its local cache and hasn’t had
+a chance to look into the main memory. So the loop never breaks.
+
+Using the volatile keyword
+The question is how can we guarantee that read/write of a variable is read from or written to the main memory instead
+of the CPU cache local to the thread that is operating on the value.
+
+By declaring a variable as volatile, we tell the program any write operation to the variable should be immediately
+flushed to the main memory, and any read operation of the variable should read from the main memory instead of
+local cache.
+
+
+volatile guarantees the visibility of the variable among all threads that operates on it. That is to say, any
+read/write operation on the variable is immediately visible to other threads. By “immediately visible”, we mean the
+change will be immediately flushed to the main memory instead of kept in any thread’s local cache.
+
+
+Application of volatile is useful when one deals with a single write thread and no less than one read threads.
+When more than one write threads are required, race condition can happen among different concurrently running write
+threads that writes to the same shared resource. Explicit synchronization using synchronized keyword or Lock from
+java.util.concurrent package to synchronize different write threads are necessary.
+
+
+=======================================================================
+
+CAS
+
+Pessimistic Locking
+If there are multiple threads trying to write to the shared resource, the critical section that contains set
+operations to the shared resource should be locked up when one thread enters this section. This way of dealing
+thread safety issue is called pessimistic locking.
+
+This way, the possibility of collision is reduced to zero. The pessimistic “guy” expects bad things and take
+precautions accordingly to try to reduce risks to a maximum extent. Though the safety issue can be completely solved,
+the performance is also negatively impacted since all threads have to queue up waiting for its access.
+
+Optimistic locking
+Optimistic locking in Java is implemented using an algorithm called CAS, which is “Compare-And-Set” or “Compare-And-Swap”.
+By using this algorithm, programs no longer have to lock up the whole critical section.
+
+It just attempts to update the shared resource. If the previous attempts failed, it just makes another one until the
+resource had been successfully updated.
+
+
+Suppose there is a shared resource which is an int variable waits to be updated. For each thread, there are three values involved:
+
+V: the current value of this int variable in main memory
+E: the value of the int variable that this thread expects to be
+N: the new value this thread wants to set to the int variable
+
+The core operation is the CAS. In order to set the new value to the variable, a thread must follow three steps:
+
+Fetch the current value of the variable in main memory which is V
+Compare V with the expected value E
+If V equals to E, set the value of the variable to N. If not, try again.
+
+These last two steps are guaranteed as one atomic operation by low level implementation.
+
+i++
+A typical i++ operation is not thread-safe since there are actually three operations going on under the hood:
+1. Fetch the value of i from a temporary location;
+2. increment i;
+3. Flush is back to main memory
+
+With AtomicInteger, one can invoke getAndIncrement() method on an instance of it to achieve the same purpose.
+
+
+
+

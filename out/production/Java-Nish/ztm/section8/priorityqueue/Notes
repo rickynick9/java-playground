@@ -1,0 +1,11 @@
+We want to have generic items in priority queue that are comparable.
+Challenge : Find largest M items in a stream of N items.
+    Fraud Detection : Isolate $$ transactions
+
+
+Unordered Max Priority Queue
+Insertion takes O(1)
+Delete max takes O(n) - we have to go through the entire array to find max element
+Find Max O(n)
+
+Goal : log(n) complexity for all operations

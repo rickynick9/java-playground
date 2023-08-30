@@ -1,0 +1,41 @@
+Scalability and Thread Safety
+
+Even though threads are relatively lightweight, it takes time and resources to create them.
+Also, thread safety is provided at the expense of scalability—overly conservative synchronization limits performance.
+The old threading API is not the right choice if we want maintainable code with better scalability and throughput.
+
+To learn the benefits and challenges of this API, let’s create a disk utility that will find the total size of all the
+files in a directory. For large directory hierarchies, a sequential run of this program would take a long time.
+We’ll have to turn to concurrency to speed it up.
+
+
+To find the directory size, we could split the operation into parts, with each task exploring a subdirectory.
+Since each task has to run in a separate thread, we could start an instance of Thread.
+But threads are not reusable—we can’t restart them, and scheduling multiple tasks on them is not easy.
+We certainly don’t want to create as many threads as the number of subdirectories we find—it’s not scalable and is the
+quickest way to fail. The java.util.con- current API was introduced exactly for this purpose—to manage a pool of threads.
+
+======================== ExecutorService =============================
+The ExecutorService, the Executors factory, and the related API ease the pain of working with pools of threads.
+We can easily schedule any number of tasks to run. If we simply want to send off a task to run, we can wrap the task in a
+Runnable. For tasks that will return a result, we can wrap them in Callable.
+
+To schedule arbitrary tasks, we use the execute() or submit() methods of ExecutorService.
+To schedule a collection of tasks, we use the invokeAll() method.
+
+As soon as we create an executor service, the pool of threads is ready and active to serve.
+If we have no tasks for them, then the threads in the pool idle away—except in the case of cached pool, where they die
+after a delay.
+
+If we no longer need the pool of threads, invoke the shutdown() method. This method doesn’t kill the pool instantly.
+It completes all tasks currently scheduled before it shuts down the pool, but we can’t schedule any new tasks.
+
+A call to shutdownNow() tries to force-cancel currently executing tasks.
+
+====================== Coordinating Threads ==================================
+Once we divide a problem into parts, we can schedule several concurrent tasks in a pool of threads and wait for their
+results to arrive.
+
+
+https://www.youtube.com/watch?v=4s1Tcvm00pA&list=PL9gnSGHSqcnqfctdbCQKaw5oZ9Up2cmsq
+https://www.youtube.com/@KunalKushwaha/playlists

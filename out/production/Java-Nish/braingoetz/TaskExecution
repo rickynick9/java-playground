@@ -1,0 +1,131 @@
+>>>>>>>>>>>>>>>> Task Identification
+The first step in organizing a program around task execution is identifying sen- sible task boundaries.
+Ideally, tasks are independent activities: work that doesn’t depend on the state, result, or side effects of other tasks.
+Independence facilitates concurrency, as independent tasks can be executed in parallel if there are adequate
+processing resources.
+
+>>>>>>>>>>>>>> Single Threaded Server
+
+class SingleThreadWebServer {
+    public static void main(String[] args) throws IOException {
+        ServerSocket socket = new ServerSocket(80);
+        while (true) {
+            Socket connection = socket.accept();
+            handleRequest (connection );
+        }
+    }
+}
+
+This would perform poorly in production because it can handle only one request at a time.
+The main thread alternates between accepting connections and processing the associated request.
+While the server is handling a request, new connections must wait until it finishes the current request and calls
+accept again.
+
+Processing a web request involves a mix of computation and I/O. The server must perform socket I/O to read the request
+and write the response, which can block due to network congestion or connectivity problems. It may also perform file
+I/O or make database requests, which can also block. In a single-threaded server, blocking not only delays completing
+the current request, but prevents pending requests from being processed at all.
+
+>>>>>>>>>>>>>>>>   Explicitly creating threads for tasks
+
+class ThreadPerTaskWebServer {
+    public static void main(String[] args) throws IOException {
+        ServerSocket socket = new ServerSocket(80);
+        while (true) {
+            final Socket connection = socket.accept();
+            Runnable task = new Runnable() {
+                public void run() {
+                    handleRequest(connection);
+                }
+            };
+            new Thread(task).start();
+        }
+    }
+}
+
+
+For each connection, the main loop/thread creates a new thread to process the request instead of processing it within
+the main thread.
+
+Task processing is offloaded from the main thread, enabling the main loop to resume waiting for the next incoming
+connection more quickly.
+
+Tasks can be processed in parallel, enabling multiple requests to be serviced simultaneously.
+
+Under light to moderate load, the thread-per-task approach is an improvement over sequential execution. As long as
+the request arrival rate does not exceed the server’s capacity to handle requests.
+
+Problem with this approach
+Thread lifecycle overhead: Thread creation and teardown are not free. Thread creation takes time, introducing latency
+into request processing.
+
+Resource consumption: Active threads consume system resources, especially memory. When there are more runnable threads
+than available processors, threads sit idle. Having many idle threads can tie up a lot of memory, putting pressure on
+the garbage collector.
+
+Stability:  There is a limit on how many threads can be created. The limit varies by platform and is affected by
+factors including JVM invocation parameters. When you hit this limit, the most likely result is an OutOfMemoryError.
+Trying to recover from such an error is very risky.
+
+Up to a certain point, more threads can improve throughput, but beyond that point creating more threads just slows down
+your application.
+
+>>>>>>>>>>>>>>>> The Executor framework
+Thread pools offer the same benefit for thread management, and java.util.concurrent provides a flexible thread pool
+implementation as part of the Executor framework.
+
+The primary abstraction for task execution in the Java class libraries is not Thread, but Executor.
+
+It provides a standard means of decoupling task submission from task execution, describing tasks with Runnable.
+
+Using an Executor is usually the easiest path to implementing a producer-consumer design in your application.
+
+
+class TaskExecutionWebServer {
+    private static final int NTHREADS = 100;
+    private static final Executor exec = Executors.newFixedThreadPool(NTHREADS);
+    public static void main(String[] args) throws IOException {
+        ServerSocket socket = new ServerSocket(80);
+        while (true) {
+            final Socket connection = socket.accept();
+            Runnable task = new Runnable() {
+                public void run() {
+                    handleRequest(connection);
+                }
+            };
+            exec.execute(task);
+        }
+    }
+}
+
+
+
+>>>>>>>>>>>>>>>>>  Parallelizing recursive algorithms
+
+If we have a loop whose iterations are independent and we don’t need to wait for all of them to complete before
+proceeding, we can use an Executor to transform a sequential loop into a parallel one
+
+void processSequentially(List<Element> elements) {
+    for (Element e : elements)
+        process(e);
+}
+
+void processInParallel(Executor exec, List<Element> elements) {
+    for (final Element e : elements)
+            exec.execute(new Runnable() {
+                public void run() {
+                    process(e);
+                }
+            });
+}
+
+
+>>>>>>>>>>>>>>>>>> Example: A puzzle framework ==>> PENDING
+
+
+
+
+
+
+
+

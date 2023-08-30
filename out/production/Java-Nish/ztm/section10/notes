@@ -1,0 +1,48 @@
+Binary Tree
+Each node can only have 2 maximum child nodes.
+Each node can have only one parent.
+
+A perfect binary tree - It has everything filled-in
+It means all the leaf nodes are full.
+There are no nodes that has only one child.
+
+Properties :
+1. Number of nodes at each level doubles as we move down the tree.
+2. Number of nodes at last level is equal to sum of nodes at all previous level + 1
+
+Property 2 reflects that half of the data is at at last level.
+
+Lookup : O(logN)
+Insert: O(logN)
+Delete : O(logN)
+
+Full Binary Tree : A node has either 0 or 2 children.
+
+
+No of nodes at each level in perfect binary tree
+Level 0 : 2^0 = 1
+Level 1 : 2^1 = 2
+Level 2 : 2^2 = 4
+Level 3 : 2^3 = 8
+
+Height of the tree = no of levels (In this case 4)
+Height of tree = 4
+Total no of nodes = 2^height - 1 = 2^4 -1 = 15
+
+nodes = 2 ^h - 1
+log nodes = h log2
+log nodes = h
+
+logN is the maximum non if decisions we are going to take to find a node.
+
+======================
+
+Binary Search Tree
+
+Right node bigger than parent node
+Left node lesser that parent node
+
+A highly unbalanced binary search tree is close to a linked list.
+If we keep adding nodes to the right. This will result in unbalanced binary search tree.
+
+AVL tress and Red Black Trees can balance a binary search tree.

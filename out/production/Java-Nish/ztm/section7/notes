@@ -1,0 +1,160 @@
+Hashing
+
+Saves in key index table. (Index is a function of key)
+
+Hash Function : Method for computing array index from a key
+This function takes any key and reduces it to an Integer i.e array index.
+
+This index table just stores the index and key value pais can be srored in array,.
+
+
+Issue :
+Collision detection :
+Algorithm and data structure to handle 2 keys that hash to the same array index.
+
+Classic trade-off
+No space limitation : Trivial hash function with key as index.
+No time limitation: Trivial collision resolution with sequential search
+Space and time limitation: Hashing ( the real world)
+
+All Java classes inherit a method hashCode(), whcih returns 32-bit int.
+
+Requirement : If x.equals(y), then (x.hashCode() == y.hashCode())
+Highly Desirable: If !x.equals(y) then (x.HashCode() != y.hashCode())
+
+Default Implementation : In Java we take memory address of each object for hashing which meets the above 2
+requirements.
+
+
+Horner's method for hashcode
+
+31x + y rule.
+・Initialize hash to 1.
+・Repeatedly multiply hash by 31 and add next integer in array
+
+public static int hashCode(int[] a) {
+     if (a == null)
+        return 0;
+     int hash = 1;
+     for (int i = 0; i < a.length; i++)
+        hash = 31*hash + a[i];
+     return hash;
+ }
+
+Implementing hash code: strings
+Treat a string as an array of characters.
+
+public final class String {
+     private final char[] s;
+     ⋮
+     public int hashCode() {
+        int hash = 0;
+        for (int i = 0; i < length(); i++)
+            hash = s[i] + (31 * hash);
+        return hash;
+     }
+
+}
+
+Designing HashCode :
+
+
+public final class Transaction {
+     private final String who;
+     private final Date when;
+     private final double amount;
+    public Transaction(String who, Date when, double amount){
+        /* as before */
+    }
+    public boolean equals(Object y) {
+        /* as before
+    }
+
+    public int hashCode() {
+         int hash = 1;
+         hash = 31*hash + who.hashCode();
+         hash = 31*hash + when.hashCode();
+         hash = 31*hash + ((Double) amount).hashCode();
+         return hash;
+    }
+}
+
+
+Hash code. An int between −2^31 and 2^31 − 1.
+Hash function. An int between 0 and m - 1 (for use as array index).
+
+ private int hash(Key key) {
+    return key.hashCode() % m; -------> BUG
+ }
+
+ This hash function implementation is buggy because hashCode() can have negative values and this function may return
+ negative. Negative cannot be an index if we are adding these indexes to arrays.
+
+  private int hash(Key key) {
+     return Math.abs(key.hashCode()) % m;
+  }
+
+  Taking Math.abs makes perfect sense in theory -- except for one annoying complication. When one takes the absolute
+  value of the minimum 32-bit integer (i.e., −2^31=−2147483648), one gets 2^31. But this value is one more than the
+  maximum 32-bit integer, 2^31−1.
+
+  As a result, an overflow error occurs. Since Java's mechanism for storing negative integers (i.e., Two's Complement)
+  effectively curves the number line into a circle -- connecting the maximum value to the minimum -- and noting that
+  2^31 is one larger than 2^31−1, the overflow takes us back to the minimum again. The upshot of all this is that one
+  will see the following in Java:
+
+  System.out.println(Math.abs(-2147483648)); // prints -2147483648   <-- Yikes!
+
+
+  https://mathcenter.oxford.emory.edu/site/cs171/usingTheHashCodeMethod/#:~:text=Admittedly%2C%20the%20chance%20of%20having,hashCode()%20equals%20this%20value.
+
+
+Admittedly, the chance of having a hash code equal −2147483648 is exceedingly low (i.e., less than one in a billion,
+when hash codes are uniformly distributed) -- but it can happen. As an amusing example, note that
+"polygenelubricants".hashCode() equals this value.
+
+The key is another consequence of Java's use of two's complement to store negative integers -- namely, that a 32-bit
+integer will be positive whenever its the leading bit is zero.
+
+We can ensure this happens with a clever trick. Consider the following bit-wise and operation on the sequence of bits
+that represents -123456789:
+
+  11111000101001000011001011101011   // -123456789
+& 01111111111111111111111111111111   // 0x7fffffff (in hexadecimal)
+----------------------------------
+  01111000101001000011001011101011
+
+Consequently, we can use the following to generate an int that will always represent a valid index in an array of
+length m from a given key's hash code.
+
+private int hash(Key key) {
+  return (key.hashCode() & 0x7fffffff) % m;
+}
+
+
+
+Bin an balls problem : https://cs.uwaterloo.ca/~r5olivei/courses/2021-spring-cs466/lecture04.pdf
+https://www.ic.unicamp.br/~celio/peer2peer/math/czumaj-balls-into-
+bins.pdf
+http://cs.williams.edu/~shikha/teaching/fall19/cs256/lectures/Lecture29.pdf
+
+
+Seperate Chaining :
+Build linked list for each table positions.
+We have a table that has smaller number of keys that we have.
+The hash function will map keys to some integer.
+
+
+
+Linear Probing :
+Also called open addressing.
+
+
+
+
+
+
+
+
+
+

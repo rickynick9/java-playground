@@ -1,0 +1,49 @@
+BAC,9839
+GOOGL,2355
+AAPL,4670
+MSFT,2000
+NVDA,5000
+META,1500
+ADBE,3950
+
+https://www.alphavantage.co/documentation/
+
+
+The application has very little computation to perform and spends most of the time waiting for responses from the Web.
+There is really no reason to wait for one response to arrive before sending the next request. So, this application is
+a good candidate for concurrency: we’ll likely get a good bump in speed.
+
+Since the web service requests will spend a lot of time waiting on a response, the blocking coefficient is fairly high,
+and therefore we can bump up the number of threads by several factors of the number of cores.
+Let’s say the blocking coefficient is 0.9—each task blocks 90 percent of the time and works only 10 percent of its lifetime.
+
+Then on two cores, we can have twenty threads. On an eight-core processor, we can go up to eighty threads,
+assuming we have a lot of ticker symbols.
+
+It’s better to use a thread pool—they have better life cycle and resource management, reduce startup and teardown costs,
+and are warm and ready to quickly start scheduled tasks.
+
+Is There a Reason to Use the Old Threading API in Java?
+The old threading API has several deficiencies. We’d use and throw away the instances of the Thread class since they
+don’t allow restart. To handle multiple tasks, we typically create multiple threads instead of reusing them. If we decide
+to schedule multiple tasks on a thread, we had to write quite a bit of extra code to manage that. Either way was not
+efficient and scalable. Methods like wait() and notify() require synchronization and are quite hard to get right when
+used to communicate between threads. The join() method leads us to be concerned about the death of a thread rather than a
+task being accomplished.
+
+Wherever we use the Thread class and its methods, we can now rely upon the ExecutorService class and related classes.
+If we need better control over acquiring locks, we can rely upon the Lock interface and its methods.
+Wherever we use wait/notify, we can now use synchronizers such as CyclicBarrier and CountdownLatch.
+
+In the modern concurrency API, the Executors class serves as a factory to create different types of thread pools that
+we can manage using the ExecutorService interface.
+
+FixedThreadPool
+A fixed threaded pool allows us to configure the pool size and concurrently runs, in one of the available threads,
+the tasks we throw at it. If there are more tasks than threads, the tasks are queued for execution, and each queued
+task is run as soon as a thread is available.
+
+CachedPool
+A cached threaded pool will create threads as needed and will reuse existing threads if possible. If no activity is
+scheduled on a thread for well over a minute, it will start shutting down the inactive threads.
+

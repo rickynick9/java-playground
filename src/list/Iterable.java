@@ -1,6 +1,6 @@
 //package list;
 //
-//import java.util.Iterator;
+//import java.util.IteratorC;
 //import java.util.Objects;
 //import java.util.Spliterator;
 //import java.util.Spliterators;
@@ -10,9 +10,9 @@
 //    /**
 //     * Returns an iterator over elements of type {@code T}.
 //     *
-//     * @return an Iterator.
+//     * @return an IteratorC.
 //     */
-//    Iterator<T> iterator();
+//    IteratorC<T> iterator();
 //
 //    /**
 //     * Performs the given action for each element of the {@code Iterable}
@@ -50,7 +50,7 @@
 //     * @implSpec
 //     * The default implementation creates an
 //     * <em><a href="../util/Spliterator.html#binding">early-binding</a></em>
-//     * spliterator from the iterable's {@code Iterator}.  The spliterator
+//     * spliterator from the iterable's {@code IteratorC}.  The spliterator
 //     * inherits the <em>fail-fast</em> properties of the iterable's iterator.
 //     *
 //     * @implNote

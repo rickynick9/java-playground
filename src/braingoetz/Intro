@@ -1,0 +1,27 @@
+The sequential programming model is intuitive and natural, as it models the way humans work: do one thing at a time,
+in sequence mostly.
+
+As in programming languages, each of these real-world actions is an abstraction for a sequence of finer grained
+actions - open the cupboard, select a flavor of tea, measure some tea into the pot, see if there’s enough water in the
+teakettle, if not put some more water in, set it on the stove, turn the stove on, wait for the water to boil, and so on.
+
+This last step — waiting for the water to boil also involves a degree of asynchrony. While the water is heating,
+you have a choice of what to do or just wait, or do other tasks in that time such as starting the toast,
+fetching the newspaper, while remaining aware that your attention will soon be needed by the teakettle.
+
+Finding the right balance
+Finding the right balance of sequentiality and asynchrony is often a characteristic of efficient people
+and the same is true of programs.
+
+Threads allow multiple streams of program control flow to coexist within a process.
+They share process wide resources such as memory and file handles, but each thread has its own
+program counter, stack, and local variables.
+
+Threads also provide a natural decomposition for exploiting hardware parallelism on multi-processor systems;
+multiple threads within the same program can be scheduled simultaneously on multiple CPUs.
+
+Since threads share the memory address space of their owning process, all threads within a process have access to the
+same variables and allocate objects from the same heap, which allows finer-grained data sharing than inter-process mechanisms.
+
+But without explicit synchronization to coordinate access to shared data, a thread may modify variables that another
+thread is in the middle of using, with unpredictable results.
